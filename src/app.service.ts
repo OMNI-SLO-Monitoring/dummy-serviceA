@@ -1,5 +1,5 @@
 import { Injectable, HttpService } from '@nestjs/common';
-import { Policy, ConsecutiveBreaker, BrokenCircuitError } from 'cockatiel';
+import { Policy, ConsecutiveBreaker, BrokenCircuitError, TimeoutStrategy, TaskCancelledError, CancellationToken } from 'cockatiel';
 
 const urlMonitor = 'http://localhost:3400/';
 const urlServiceB = 'http://localhost:3000/';
@@ -7,6 +7,8 @@ const circuitBreaker = Policy.handleAll().circuitBreaker(
   10 * 1000,
   new ConsecutiveBreaker(3),
 );
+
+const timeout = Policy.timeout(3000, TimeoutStrategy.Aggressive);
 
 @Injectable()
 export class AppService {
@@ -20,18 +22,23 @@ export class AppService {
 
   async handleRequest() {
     try {
-      const data = await circuitBreaker.execute(() => this.sendToB());
+      const data = await circuitBreaker.execute(() => this.handleTimeout());
     } catch (error) {
       if (error instanceof BrokenCircuitError) {
         console.log('Breaker open');
         this.sendError(
           JSON.parse(
-            '{ "data": "CircuitBreaker open", "level": "CircuitBreakerError"}',
+            '{ "data": "CircuitBreaker open", "level": "circuit_breaker_error"}',
           ),
         );
+        //skip TaskCancelledError to not send twice
+      } else if (error instanceof TaskCancelledError) {
+        
       } else {
-        console.log(error);
-        this.sendError(error);
+        console.log(error.response.status);
+        console.log(error.response.statusText);
+        let string = error.response.status + ' ' + error.response.statusText;
+        this.sendError(this.createErrorMessage(string));
       }
     }
   }
@@ -43,6 +50,24 @@ export class AppService {
     );
   }
 
+  async handleTimeout() {
+    try {
+      const data =await timeout.execute(() => this.sendToB())
+    } catch (error) {
+        if (error instanceof TaskCancelledError) {
+          console.log('Request timeout')
+          this.sendError(
+            JSON.parse(
+              '{ "data": "CircuitBreaker timeout", "level": "circuit_breaker_error"}',
+              ),
+          );
+          return Promise.reject(error);
+        } else {
+          return Promise.reject(error);
+        }
+    }
+  }
+
   async sendToB() {
     console.log('B called');
     try {
@@ -51,7 +76,8 @@ export class AppService {
         console.log('Request to B was successful');
       }
     } catch (error) {
-      return Promise.reject(error.response.data);
+      //console.log(error);
+      return Promise.reject(error);
     }
   }
 }
