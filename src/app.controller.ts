@@ -7,6 +7,6 @@ export class AppController {
 
   @Get()
   getStatus() {
-    this.appService.handleRequestToB();
+    this.appService.handleRequest();
   }
 }
