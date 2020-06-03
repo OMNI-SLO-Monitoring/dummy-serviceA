@@ -36,8 +36,11 @@ export class AppService {
     }
   }
 
-  async sendError(data: JSON) {
-    const send = await this.httpService.post(urlMonitor, data).toPromise();
+  sendError(data: JSON) {
+    this.httpService.post(urlMonitor, data).subscribe(
+      res => console.log(`Report sent to monitor at ${urlMonitor}`),
+      err => console.log(`Monitor at ${urlMonitor} not available`),
+    );
   }
 
   async sendToB() {
