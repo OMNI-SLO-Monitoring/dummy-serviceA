@@ -17,7 +17,6 @@ export class AppService {
 
   createErrorMessage(data: string) {
     let string = '{ "data": ' + JSON.stringify(data) + ', "level": "error"}';
-    console.log(string);
     return JSON.parse(string);
   }
 
@@ -36,11 +35,16 @@ export class AppService {
       } else if (error instanceof TaskCancelledError) {
         
       } else {
-        console.log(error.response.status);
-        console.log(error.response.statusText);
-        let string = error.response.status + ' ' + error.response.statusText;
-        this.sendError(this.createErrorMessage(string));
+        if (error.response != undefined) {
+          console.log(error.response.status);
+          console.log(error.response.statusText);
+          let string = error.response.status + ' ' + error.response.statusText;
+          this.sendError(this.createErrorMessage(string));
+      } else {
+        this.sendError(this.createErrorMessage(error.code))
       }
+        }
+        
     }
   }
 
@@ -68,12 +72,7 @@ export class AppService {
         }
     }
   }
-  async handleRequestToB() {
-    const breaker = new Circuitbreaker(this.sendToB(), options);
-    const response = await breaker.fire().catch(console.error);
-    console.log('After catch');
-    breaker.fallback(response => this.sendError(response.data));
-  }
+
   async sendToB() {
     console.log('B called');
     try {
