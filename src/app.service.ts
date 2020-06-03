@@ -1,4 +1,5 @@
 import { Injectable, HttpService } from '@nestjs/common';
+
 import { Policy, ConsecutiveBreaker, BrokenCircuitError, TimeoutStrategy, TaskCancelledError, CancellationToken } from 'cockatiel';
 
 const urlMonitor = 'http://localhost:3400/';
@@ -67,7 +68,12 @@ export class AppService {
         }
     }
   }
-
+  async handleRequestToB() {
+    const breaker = new Circuitbreaker(this.sendToB(), options);
+    const response = await breaker.fire().catch(console.error);
+    console.log('After catch');
+    breaker.fallback(response => this.sendError(response.data));
+  }
   async sendToB() {
     console.log('B called');
     try {
